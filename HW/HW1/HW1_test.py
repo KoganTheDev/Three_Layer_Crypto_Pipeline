@@ -103,8 +103,8 @@ class TestHW1(unittest.TestCase):
 		dec_key = hw.inverse_2x2_matrix(self.encryption_key, self.N)
 		dec_key2 = hw.inverse_2x2_matrix(self.second_encryption_key, self.N)
 		cipher = hw.NameCipher_encryption(plaintext, self.encryption_key, self.second_encryption_key, self.a, self.b, self.N)
-		# encryption of odd-length plaintext should start with PAD_CHAR marker
-		self.assertTrue(cipher.startswith(hw.PAD_CHAR), 'Ciphertext should start with PAD_CHAR for odd-length input')
+		# encryption of odd-length plaintext should end with PAD_CHAR marker
+		self.assertTrue(cipher.endswith(hw.PAD_CHAR), 'Ciphertext should end with PAD_CHAR for odd-length input')
 		decrypted = hw.NameCipher_decryption(cipher, dec_key, dec_key2, self.a, self.b, self.N)
 		self.assertEqual(decrypted, plaintext, 'Decryption should recover original plaintext exactly')
 
@@ -114,8 +114,8 @@ class TestHW1(unittest.TestCase):
 		dec_key = hw.inverse_2x2_matrix(self.encryption_key, self.N)
 		dec_key2 = hw.inverse_2x2_matrix(self.second_encryption_key, self.N)
 		cipher = hw.NameCipher_encryption(plaintext, self.encryption_key, self.second_encryption_key, self.a, self.b, self.N)
-		# Ciphertext should start with PAD_CHAR since plaintext length is odd
-		self.assertTrue(cipher.startswith(hw.PAD_CHAR), "Ciphertext should start with PAD_CHAR for odd-length plaintext")
+		# Ciphertext should end with PAD_CHAR since plaintext length is odd
+		self.assertTrue(cipher.endswith(hw.PAD_CHAR), "Ciphertext should end with PAD_CHAR for odd-length plaintext")
 		decrypted = hw.NameCipher_decryption(cipher, dec_key, dec_key2, self.a, self.b, self.N)
 		self.assertEqual(decrypted, plaintext, "Decryption should recover 'x' exactly")
 
@@ -124,8 +124,8 @@ class TestHW1(unittest.TestCase):
 		dec_key = hw.inverse_2x2_matrix(self.encryption_key, self.N)
 		dec_key2 = hw.inverse_2x2_matrix(self.second_encryption_key, self.N)
 		cipher = hw.NameCipher_encryption(plaintext, self.encryption_key, self.second_encryption_key, self.a, self.b, self.N)
-		# Odd-length plaintext should result in ciphertext starting with PAD_CHAR
-		self.assertTrue(cipher.startswith(hw.PAD_CHAR), "Ciphertext should start with PAD_CHAR for odd-length plaintext")
+		# Odd-length plaintext should result in ciphertext ending with PAD_CHAR
+		self.assertTrue(cipher.endswith(hw.PAD_CHAR), "Ciphertext should end with PAD_CHAR for odd-length plaintext")
 		decrypted = hw.NameCipher_decryption(cipher, dec_key, dec_key2, self.a, self.b, self.N)
 		self.assertEqual(decrypted, plaintext, "Decryption should recover exact plaintext")
 

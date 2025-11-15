@@ -15,6 +15,17 @@ import math
 PAD_CHAR = '$' # Visible padding character used in ciphertext
 PAD_NUM = ord('x') - ord('a') # When padding '$' defualts to the same value as if it was 'x'
 
+
+def _print_separator(char='='):
+    """Print a separator line for formatting."""
+    print(char * 50)
+
+
+def _print_label_value(label, value):
+    """Print a label-value pair with consistent formatting."""
+    print(f"{label:35}{value}")
+
+
 def is_key_valid(key, N=26):
     """Validate a 2x2 key matrix.
 
@@ -31,21 +42,22 @@ def is_key_valid(key, N=26):
         bool: True when the key is valid, False otherwise.
     """
     try:
-        print("\n====================================")
+        print()
+        _print_separator()
         print("Checking key validity for key:")
         try: # Print the key matrices with justified elements, if fails, print using the built in print for arrays
             print(f"  [{key[0][0]:>3},{key[0][1]:>3}]")
             print(f"  [{key[1][0]:>3},{key[1][1]:>3}]")
         except Exception:
             print(f"  {key}")
-        print("------------------------------------")
+        print("-" * 50)
 
 
         # size check
         size_ok = isinstance(key, list) and len(key) == 2 and isinstance(key[0], list) and len(key[0]) == 2 and len(key[1]) == 2
-        print(f"{'Matrix size:':30}{'OK' if size_ok else 'NOT VALID'}")
+        _print_label_value("Matrix size:", "OK" if size_ok else "NOT VALID")
         if not size_ok:
-            print("====================================")
+            _print_separator()
             return False
 
         # element range check
@@ -57,19 +69,19 @@ def is_key_valid(key, N=26):
                     break
             if not elements_ok:
                 break
-        print(f"{'Elements in range [0,%d]:' % (N-1):30}{'OK' if elements_ok else 'NOT VALID'}")
+        _print_label_value(f"Elements in range [0,{N-1}]:", "OK" if elements_ok else "NOT VALID")
         if not elements_ok:
-            print("====================================")
+            _print_separator()
             return False
 
         # determinant and gcd
         determinant = (key[0][0] * key[1][1] - key[0][1] * key[1][0]) % N
-        print(f"{'Determinant mod N:':30}{determinant}")
+        _print_label_value("Determinant mod N:", determinant)
         gcd = math.gcd(determinant, N)
-        print(f"{'GCD(det, N):':30}{gcd}")
+        _print_label_value("GCD(det, N):", gcd)
         invertible = gcd == 1
-        print(f"{'Key invertible:':30}{'Yes' if invertible else 'No'}")
-        print("====================================")
+        _print_label_value("Key invertible:", "Yes" if invertible else "No")
+        _print_separator()
         return invertible
     except Exception as e:
         print("Error while validating key:", e)
@@ -148,91 +160,120 @@ def int_to_string(integer_array, pad_char=PAD_CHAR, remove_padding=False):
 
 
 def matrix_multiply(A, B):
+    """Multiply matrices A (m x k) and B (k x n) and return m x n result.
+    
+    Performs standard matrix multiplication with dimension validation.
+    
+    Args:
+        A (list[list[int]]): m x k matrix.
+        B (list[list[int]]): k x n matrix.
+    
+    Returns:
+        list[list[int]]: m x n result matrix.
+    
+    Raises:
+        ValueError: If matrix dimensions are incompatible (cols of A != rows of B).
     """
-    Multiply matrices A (m x k) and B (k x n) and return m x n result.
-    """
-    rows_A = len(A)
-    cols_A = len(A[0])
-    rows_B = len(B)
-    cols_B = len(B[0])
+    rows_A, cols_A = len(A), len(A[0])
+    rows_B, cols_B = len(B), len(B[0])
+    
     if cols_A != rows_B:
         raise ValueError("Incompatible matrix sizes for multiplication")
     
-    # Generate a matrix for result with zeros as the inner elements
-    C = [[0 for _ in range(cols_B)] for _ in range(rows_A)]
-    
+    result = [[0 for _ in range(cols_B)] for _ in range(rows_A)]
     for i in range(rows_A):
         for j in range(cols_B):
-            s = 0
-            for k in range(cols_A):
-                s += A[i][k] * B[k][j]
-            C[i][j] = s
-    return C
+            result[i][j] = sum(A[i][k] * B[k][j] for k in range(cols_A))
+    return result
 
 
-def NameCipher_encryption(plaintext, encryption_key, second_encryption_key, a, b, N):
+def _encrypt_block(block, key, a, b, N):
+    """Encrypt a 2-element block
+    
+    Performs: Y = (block * key + (a, b)) mod N
+    
+    Args:
+        block (list[int]): 2-element block to encrypt.
+        key (list[list[int]]): 2x2 encryption key matrix.
+        a (int): First affine offset.
+        b (int): Second affine offset.
+        N (int): Modulus.
+    
+    Returns:
+        list[int]: Encrypted 2-element block modulo N.
+    """
+    product = matrix_multiply([block], key)[0]
+    return [(product[0] + a) % N, (product[1] + b) % N]
+
+
+def _decrypt_block(block, key, a, b, N):
+    """Decrypt a 2-element block using Hill cipher with affine subtraction.
+    
+    Performs: X = (block - (a, b)) * key_inverse mod N
+    
+    Args:
+        block (list[int]): 2-element block to decrypt.
+        key (list[list[int]]): 2x2 decryption key matrix (inverse of encryption key).
+        a (int): First affine offset.
+        b (int): Second affine offset.
+        N (int): Modulus.
+    
+    Returns:
+        list[int]: Decrypted 2-element block modulo N.
+    """
+    adjusted = [(block[0] - a) % N, (block[1] - b) % N]
+    product = matrix_multiply([adjusted], key)[0]
+    return [val % N for val in product]
+
+
+def NameCipher_encryption(plaintext, first_encryption_key, second_encryption_key, a, b, N):
     """Encrypt plaintext using the two-stage NameCipher scheme.
 
     This function performs:
     1. Y = (X * K1 + (a,b)) mod N
     2. Z = (Y * K2 + (a,b)) mod N
 
-    The function pads the input with the padding character '$' when the
-    plaintext length is odd. A padding marker is prepended to indicate this.
+    The function pads the input with '$' when plaintext length is odd.
+    A padding marker is appended to indicate this.
 
     Args:
         plaintext (str): Input text to encrypt. Non-letters are ignored.
-        encryption_key (list[list[int]]): First 2x2 encryption key K1.
+        first_encryption_key (list[list[int]]): First 2x2 encryption key K1.
         second_encryption_key (list[list[int]]): Second 2x2 encryption key K2.
         a (int): First affine offset value.
         b (int): Second affine offset value.
         N (int): Modulus.
 
     Returns:
-        str: Ciphertext as a lowercase string (with '$' prefix if padding was used).
+        str: Ciphertext as a lowercase string (with '$' suffix if padding was used).
     """
-    plaintext_integer_array = String_to_int(plaintext)
-
-    # Track if padding is needed
-    needs_padding = len(plaintext_integer_array) % 2 != 0
-
-    # pad if odd length
-    if needs_padding:
-        plaintext_integer_array.append(PAD_NUM)
-
-    # 1st encryption => Y = (X * K1 + (a,b)) mod N
-    Y_integer_array = []
-    for i in range(0, len(plaintext_integer_array), 2):
-        x0 = plaintext_integer_array[i]
-        x1 = plaintext_integer_array[i+1]
-        block = [x0, x1]
-        product = matrix_multiply([block], encryption_key)[0] #! TODO: understand why
-        Y_integer_array.extend([(product[0] + a) % N, (product[1] + b) % N])
-
-    # 2nd encryption => Z = (Y * K2 + (a,b)) mod N
-    Z_integer_array = []
-    for i in range(0, len(Y_integer_array), 2):
-        y0 = Y_integer_array[i]
-        y1 = Y_integer_array[i+1]
-        block = [y0, y1]
-        product = matrix_multiply([block], second_encryption_key)[0]
-        Z_integer_array.extend([(product[0] + a) % N, (product[1] + b) % N])
-
-    cipher_text = int_to_string(Z_integer_array, pad_char=PAD_CHAR, remove_padding=False)
+    plaintext_ints = String_to_int(plaintext)
+    needs_padding = len(plaintext_ints) % 2 != 0
     
-    # If padding was used, prepend PAD_CHAR to mark it
     if needs_padding:
-        cipher_text = PAD_CHAR + cipher_text
-    
-    return cipher_text
+        plaintext_ints.append(PAD_NUM)
+
+    # First encryption stage: Y = (X * K1 + (a,b)) mod N
+    y_ints = []
+    for i in range(0, len(plaintext_ints), 2):
+        block = plaintext_ints[i:i+2]
+        y_ints.extend(_encrypt_block(block, first_encryption_key, a, b, N))
+
+    # Second encryption stage: Z = (Y * K2 + (a,b)) mod N
+    z_ints = []
+    for i in range(0, len(y_ints), 2):
+        block = y_ints[i:i+2]
+        z_ints.extend(_encrypt_block(block, second_encryption_key, a, b, N))
+
+    ciphertext = int_to_string(z_ints, pad_char=PAD_CHAR, remove_padding=False)
+    return ciphertext + PAD_CHAR if needs_padding else ciphertext
 
 
 def NameCipher_decryption(ciphertext, decryption_key, second_decryption_key, a, b, N):
     """Decrypt ciphertext produced by NameCipher.
 
-    The function reverses the ciphering and returns the
-    original plaintext with any padding removed. If the ciphertext 
-    starts with PAD_CHAR, it indicates padding was used and is removed.
+    Reverses the two-stage encryption. If ciphertext ends with PAD_CHAR,
+    it indicates padding was used and is removed from the result.
 
     Args:
         ciphertext (str): Ciphertext string.
@@ -245,43 +286,94 @@ def NameCipher_decryption(ciphertext, decryption_key, second_decryption_key, a, 
     Returns:
         str: Decrypted plaintext with padding removed.
     """
+    has_padding = len(ciphertext) > 0 and ciphertext[-1] == PAD_CHAR
+    cipher_no_marker = ciphertext[:-1] if has_padding else ciphertext
+    cipher_ints = String_to_int(cipher_no_marker)
 
-    # Check if ciphertext starts with PAD_CHAR (indicates padding was used)
-    has_padding = len(ciphertext) > 0 and ciphertext[0] == PAD_CHAR
+    # Reverse second encryption stage: Y = (Z - (a,b)) * K2_inv
+    y_ints = []
+    for i in range(0, len(cipher_ints), 2):
+        block = [cipher_ints[i], cipher_ints[i+1] if i+1 < len(cipher_ints) else PAD_NUM]
+        y_ints.extend(_decrypt_block(block, second_decryption_key, a, b, N))
+
+    # Reverse first encryption stage: X = (Y - (a,b)) * K1_inv
+    x_ints = []
+    for i in range(0, len(y_ints), 2):
+        block = [y_ints[i], y_ints[i+1] if i+1 < len(y_ints) else PAD_NUM]
+        x_ints.extend(_decrypt_block(block, decryption_key, a, b, N))
+
+    plaintext = int_to_string(x_ints, pad_char=PAD_CHAR, remove_padding=False)
+    return plaintext[:-1] if has_padding and len(plaintext) > 0 else plaintext
+
+# Exercise 2 - Iterative attack
+def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_encryption_key, a, b, N=26):
+    """Perform iterative attack on ciphertext by repeatedly encrypting it.
     
-    # Remove the padding marker if present
-    cipher_no_marker = ciphertext[1:] if has_padding else ciphertext
+    This attack exploits the cyclic nature of the NameCipher to decrypt ciphertext
+    by repeatedly applying the encryption function until the plaintext is recovered.
+    The padding marker ($) is properly handled to avoid expanding the ciphertext.
     
-    cipher_integer_array = String_to_int(cipher_no_marker)
+    Args:
+        plaintext (str): Expected plaintext to match.
+        initial_cipher (str): Starting ciphertext to encrypt iteratively.
+        first_encryption_key (list[list[int]]): First 2x2 encryption key.
+        second_encryption_key (list[list[int]]): Second 2x2 encryption key.
+        a (int): First affine offset.
+        b (int): Second affine offset.
+        N (int, optional): Modulus. Defaults to 26.
+    
+    Prints:
+        Number of iterations needed and final result.
+    """
+    iterative_attack_iterations = 0
+    slice_for_odd_length = len(initial_cipher) - 2
+    # Remove padding marker to get the actual text to encrypt
+    cipher_after_iterative_attack = initial_cipher[:slice_for_odd_length] if initial_cipher.endswith(PAD_CHAR) else initial_cipher
+    
+    while (plaintext != cipher_after_iterative_attack):
+        iterative_attack_iterations += 1
+        cipher_after_iterative_attack = NameCipher_encryption(cipher_after_iterative_attack, first_encryption_key, second_encryption_key, a, b, N)
+        # For an Odd cipher, remove the padding marker to continue iterating
+        cipher_after_iterative_attack = cipher_after_iterative_attack[:slice_for_odd_length] if cipher_after_iterative_attack.endswith(PAD_CHAR) else cipher_after_iterative_attack
+    
+    _print_separator()
+    _print_label_value("Plaintext:", plaintext)
+    _print_label_value("Initial cipher", initial_cipher)
+    print("First encryption key:")
+    print_2x2_matrix(first_encryption_key)
+    print("Second encryption key:")
+    print_2x2_matrix(second_encryption_key)
+    _print_label_value("Cipher after iterative attack:", cipher_after_iterative_attack)
+    _print_label_value("Iterations:", iterative_attack_iterations) 
+    
+def print_2x2_matrix(matrix):
+    """Print a 2x2 matrix in formatted style with validation.
+    
+    Args:
+        matrix (list[list[int]]): 2x2 matrix to print.
+    
+    Raises:
+        ValueError: If matrix is not 2x2 or contains non-numeric elements.
+    """
+    # Check that matrix is a list of 2 elements
+    if not isinstance(matrix, list) or len(matrix) != 2:
+        raise ValueError("Matrix must be a 2×2 list of lists.")
 
-    # first reverse EK2 => Y = (Z - (a,b)) * K2_inv
-    Y_integer_array = []
-    for i in range(0, len(cipher_integer_array), 2):
-        z0 = cipher_integer_array[i]
-        z1 = cipher_integer_array[i+1] if i+1 < len(cipher_integer_array) else PAD_NUM
-        block = [ (z0 - a) % N, (z1 - b) % N ]
-        prod = matrix_multiply([block], second_decryption_key)[0]
-        Y_integer_array.extend([val % N for val in prod])
+    # Check that each row is a list of size 2
+    for row in matrix:
+        if not isinstance(row, list) or len(row) != 2:
+            raise ValueError("Matrix must be 2×2.")
 
-    # then reverse EK1 => Plain text = X = (Y - (a,b)) * K1_inv
-    X_integer_array = []
-    for i in range(0, len(Y_integer_array), 2):
-        y0 = (Y_integer_array[i] - a) % N
-        y1 = (Y_integer_array[i+1] - b) % N if i+1 < len(Y_integer_array) else PAD_NUM
-        block = [y0, y1]
-        prod = matrix_multiply([block], decryption_key)[0]
-        X_integer_array.extend([val % N for val in prod])
+    # Check that every element is a number
+    for row in matrix:
+        for element in row:
+            if not isinstance(element, (int, float)):
+                raise ValueError("Matrix elements must be numeric.")
 
-    # Convert integers to string
-    decoded = int_to_string(X_integer_array, pad_char=PAD_CHAR, remove_padding=False)
-
-    # If padding was indicated, remove the last character
-    if has_padding and len(decoded) > 0:
-        decoded = decoded[:-1]
-
-    return decoded
-
-
+    # If everything is OK → print formatted
+    print(f"  [{matrix[0][0]:>3},{matrix[0][1]:>3}]")
+    print(f"  [{matrix[1][0]:>3},{matrix[1][1]:>3}]")
+        
 def main():
     """Demonstrate NameCipher encryption and decryption."""
     N = 26
@@ -292,47 +384,76 @@ def main():
     plaintext_2 = "yuval"
     
     # Encryption keys
-    encryption_key = [[17, 14], [0, 3]]
+    first_encryption_key = [[17, 14], [0, 3]]
     second_encryption_key = [[5, 14], [14, 17]]
 
     # Validate keys
-    if not (is_key_valid(encryption_key, N) and is_key_valid(second_encryption_key, N)):
+    if not (is_key_valid(first_encryption_key, N) and is_key_valid(second_encryption_key, N)):
         print("One or more keys are invalid. Exiting.")
         return 1
 
     # Compute decryption keys (modular inverses)
-    decryption_key = inverse_2x2_matrix(encryption_key, N)
+    decryption_key = inverse_2x2_matrix(first_encryption_key, N)
     second_decryption_key = inverse_2x2_matrix(second_encryption_key, N)
 
     # Encryption
-    cipher = NameCipher_encryption(plaintext_1, encryption_key, second_encryption_key, a, b, N)
-    cipher_2 = NameCipher_encryption(plaintext_2, encryption_key, second_encryption_key, a, b, N)
+    cipher = NameCipher_encryption(plaintext_1, first_encryption_key, second_encryption_key, a, b, N)
+    cipher_2 = NameCipher_encryption(plaintext_2, first_encryption_key, second_encryption_key, a, b, N)
     
-    print("\n" + "="*50)
+    print()
+    _print_separator()
     print("ENCRYPTION")
-    print("="*50)
-    print(f"{'Plaintext 1:':30}{plaintext_1}")
-    print(f"{'Ciphertext 1:':30}{cipher}")
-    print("-"*50)
-    print(f"{'Plaintext 2:':30}{plaintext_2}")
-    print(f"{'Ciphertext 2:':30}{cipher_2}")
-    print("="*50)
+    _print_separator()
+    _print_label_value("Plaintext 1:", plaintext_1)
+    print("First encryption key:")
+    print_2x2_matrix(first_encryption_key)
+    print("Second encryption key:")
+    print_2x2_matrix(second_encryption_key)
+    _print_label_value("Ciphertext 1:", cipher)
+    print("-" * 50)
+    _print_label_value("Plaintext 2:", plaintext_2)
+    print("First encryption key:")
+    print_2x2_matrix(first_encryption_key)
+    print("Second encryption key:")
+    print_2x2_matrix(second_encryption_key)
+    _print_label_value("Ciphertext 2:", cipher_2)
+    _print_separator()
 
     # Decryption
     decrypted = NameCipher_decryption(cipher, decryption_key, second_decryption_key, a, b, N)
     decrypted_2 = NameCipher_decryption(cipher_2, decryption_key, second_decryption_key, a, b, N)
 
-    print("\n" + "="*50)
+    print()
+    _print_separator()
     print("DECRYPTION")
-    print("="*50)
-    print(f"{'Ciphertext 1:':30}{cipher}")
-    print(f"{'Decrypted 1:':30}{decrypted}")
-    print(f"{'Match:':30}{'✓' if decrypted == plaintext_1 else '✗'}")
-    print("-"*50)
-    print(f"{'Ciphertext 2:':30}{cipher_2}")
-    print(f"{'Decrypted 2:':30}{decrypted_2}")
-    print(f"{'Match:':30}{'✓' if decrypted_2 == plaintext_2 else '✗'}")
-    print("="*50)
+    _print_separator()
+    _print_label_value("Ciphertext 1:", cipher)
+    print("First decryption key:")
+    print_2x2_matrix(decryption_key)
+    print("Second decryption key:")
+    print_2x2_matrix(second_decryption_key)
+    _print_label_value("Decrypted 1:", decrypted)
+    _print_label_value("Match:", "YES" if decrypted == plaintext_1 else "NO")
+    print("-" * 50)
+    _print_label_value("Ciphertext 2:", cipher_2)
+    print("First decryption key:")
+    print_2x2_matrix(decryption_key)
+    print("Second decryption key:")
+    print_2x2_matrix(second_decryption_key)
+    _print_label_value("Decrypted 2:", decrypted_2)
+    _print_label_value("Match:", "YES" if decrypted_2 == plaintext_2 else "NO")
+    _print_separator()
+
+    # 2nd exercise: Iterative Attack
+    print()
+    _print_separator()
+    print("ITERATIVE ATTACK")
+    _print_separator()
+    iterative_attack(plaintext_1, cipher, first_encryption_key, second_encryption_key, a, b, N)
+    print()
+    iterative_attack(plaintext_2, cipher_2, first_encryption_key, second_encryption_key, a, b, N)    
+
+
 
 if __name__ == "__main__":
     main()
