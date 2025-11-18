@@ -389,7 +389,13 @@ def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_enc
     # Remove padding marker to get the actual text to encrypt
     initial_cipher_no_marking = initial_cipher[:slice_for_odd_length] if initial_cipher.endswith(PAD_CHAR) else initial_cipher
     cipher_after_iterative_attack = initial_cipher_no_marking
+    initial_cipher_no_marking = initial_cipher[:slice_for_odd_length] if initial_cipher.endswith(PAD_CHAR) else initial_cipher
+    cipher_after_iterative_attack = initial_cipher_no_marking
     
+    while (True):
+        # Keep the previous cipher so it can be used later to print the correlation between the letters
+        prev_cipher = cipher_after_iterative_attack
+        
     while (True):
         # Keep the previous cipher so it can be used later to print the correlation between the letters
         prev_cipher = cipher_after_iterative_attack
@@ -403,8 +409,14 @@ def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_enc
         if (initial_cipher_no_marking == cipher_after_iterative_attack):
             _print_mapping(prev_cipher, initial_cipher_no_marking)
             break
+        
+        # Found the plaintext from the cipher        
+        if (initial_cipher_no_marking == cipher_after_iterative_attack):
+            _print_mapping(prev_cipher, initial_cipher_no_marking)
+            break
     
     _print_separator()
+    _print_label_value("\nPlaintext:", plaintext)
     _print_label_value("\nPlaintext:", plaintext)
     _print_label_value("Initial cipher", initial_cipher)
     print("First encryption key:")
@@ -413,6 +425,8 @@ def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_enc
     print_2x2_matrix(second_encryption_key)
     _print_label_value("Cipher after iterative attack:", cipher_after_iterative_attack)
     _print_label_value("Iterations:", iterative_attack_iterations) 
+    print()
+    _print_separator()
     print()
     _print_separator()
     
@@ -449,6 +463,7 @@ def main():
     N = 26
     a = 17
     b = 24
+
 
 
     # Encryption keys
@@ -488,7 +503,48 @@ def main():
         print("Second encryption key:")
         print_2x2_matrix(second_encryption_key)
         _print_label_value("Ciphertext:", cipher)
+    while (True):
+        plaintext = input("\nInsert plaintext, alphabetic characters only\nexit or quit to exit\n")
+        plaintext = validate_input_string(plaintext) # Returns a lower case string without any letters that are non-alphabetic letters
+        
+        # Validate input
+        if (plaintext == None):
+            print("Please insert a string with only letters from the English alphabet... [a-z] [A-Z]\n")
+            continue # Skip to the next iteration so another input is get inserted instead of the current one
+        
+        # Finish runtime due to user input
+        if (plaintext.lower() in EXIT_COMMANDS):
+            print("Finishing Execution...")
+            break
+    
+        # Encryption
+        cipher = NameCipher_encryption(plaintext, first_encryption_key, second_encryption_key, a, b, N)
+        
+        _print_title("ENCRYPTION")
+        _print_label_value("\nPlaintext:", plaintext)
+        print("First encryption key:")
+        print_2x2_matrix(first_encryption_key)
+        print("Second encryption key:")
+        print_2x2_matrix(second_encryption_key)
+        _print_label_value("Ciphertext:", cipher)
 
+        # Decryption
+        decrypted = NameCipher_decryption(cipher, decryption_key, second_decryption_key, a, b, N)
+        
+        _print_title("DECRYPTION")
+        _print_label_value("\nCiphertext:", cipher)
+        print("First decryption key:")
+        print_2x2_matrix(decryption_key)
+        print("Second decryption key:")
+        print_2x2_matrix(second_decryption_key)
+        _print_label_value("Decrypted:", decrypted)
+        _print_label_value("Match:", "YES" if decrypted == plaintext else "NO")
+        
+         # 2nd exercise: Iterative Attack
+        _print_title("ITERATIVE ATTACK")
+        iterative_attack(plaintext, cipher, first_encryption_key, second_encryption_key, a, b, N)
+        print()
+        
         # Decryption
         decrypted = NameCipher_decryption(cipher, decryption_key, second_decryption_key, a, b, N)
         
