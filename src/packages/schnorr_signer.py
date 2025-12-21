@@ -1,10 +1,11 @@
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 
+
 class SchnorrSigner:
     def __init__(self):
-        self._hash_function = hashes.SHA256()
-        
+        self._hash_function = hashes.SHA256() #
+
     def generate_signature(self, data: bytes, private_key: ec.EllipticCurvePrivateKey):
         # The library handles the internal r and s generation securely
         signature = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
