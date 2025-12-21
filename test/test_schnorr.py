@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import pytest
-from schnorr_signature import SchnorrSigner
+from schnorr.schnorr_signature import SchnorrSigner
 from utils.signature_object import SignatureObject
 from utils.key_pair import KeyPair
 

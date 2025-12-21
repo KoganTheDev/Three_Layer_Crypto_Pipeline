@@ -1,5 +1,6 @@
 import os
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
 from utils.signature_object import SignatureObject
 from utils.utils import ec_scalar_mult, ec_point_add
 import common.constants as const
@@ -24,7 +25,7 @@ Key Properties:
 
 class SchnorrSigner:
     
-    def generate_signature(self, data: bytes, private_key) -> SignatureObject:
+    def generate_signature(self, data: bytes, private_key : ec.EllipticCurvePrivateKey) -> SignatureObject:
         """
         Generate a Schnorr signature for the given data.
         
@@ -47,6 +48,13 @@ class SchnorrSigner:
         G = (const._Gx, const._Gy)
         R = ec_scalar_mult(k, G, const._p)
         
+        R = ec_scalar_mult(k, G, const._p)
+    
+        if R is None:
+            # Extremely rare, but k*G could hit infinity. 
+            # In a real app, you'd loop back and pick a new 'k'.
+            raise ValueError("Point R is at infinity. Try a different nonce.")
+
         r = R[0].to_bytes(32, 'big')
         hash_obj = hashes.Hash(hashes.SHA256())
         hash_obj.update(r + data)
