@@ -1,5 +1,6 @@
 # RC6 works on a single 16 byte block at a time
-import common.constants as const
+from common import constants as const
+
 
 '''global paremeters'''
 ROUNDS = const.ROUNDS_DEFAULT  # number of rounds
@@ -79,7 +80,7 @@ returns (or how we want to represent): list[int] - the expanded key as a list of
 def expand_key(user_key: bytes, rounds: int = const.ROUNDS_DEFAULT) -> list[int]:
     #basic parameters
     w = 32  # word size in bits (4 bytes which equals 32 bits)
-    r = round # predefined number of rounds (defined globally)
+    r = rounds # predefined number of rounds (defined globally)
     b = len(user_key)  # length of user key in bytes
     c = b // 4  # number of words in user key
     if b % 4 != 0:
