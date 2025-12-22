@@ -194,6 +194,7 @@ class SecureServer:
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(self.max_clients)
+            self.server_socket.settimeout(1.0) # Check every second for a keyboard interrupt
             self.running = True
             
             logger.info(f"Server started on {self.host}:{self.port}")
@@ -202,6 +203,9 @@ class SecureServer:
             while self.running:
                 try:
                     client_socket, client_address = self.server_socket.accept()
+                    
+                    # Complete the logic fully without stopping
+                    client_socket.settimeout(None) 
                     
                     # Create unique client ID
                     with self.lock:
@@ -221,8 +225,12 @@ class SecureServer:
                         daemon=True
                     )
                     thread.start()
+                    
+                except socket.timeout:
+                    continue # On timeout, retry
                 except KeyboardInterrupt:
                     logger.info("Server interrupted by user")
+                    self.running = False
                     break
                 except Exception as e:
                     logger.error(f"Error accepting connection: {e}")
