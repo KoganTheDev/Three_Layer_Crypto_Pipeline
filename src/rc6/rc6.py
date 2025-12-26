@@ -1,6 +1,7 @@
 # RC6 works on a single 16 byte block at a time
-from common import constants as const
-
+import common.constants as const
+import os
+import pytest
 
 '''global paremeters'''
 ROUNDS = const.ROUNDS_DEFAULT  # number of rounds
@@ -10,11 +11,17 @@ ROUNDS = const.ROUNDS_DEFAULT  # number of rounds
 def u32(x: int) -> int:
     return x & const.WORD_MASK
 
-#circular rotation of a 32 bit word
+#circular left rotation of a 32 bit word
 def rotl32(x, s):
-    s = s & 31
-    x = x & const.WORD_MASK
-    return (x << s) | (x >> (32 - s))  & const.WORD_MASK
+    s &= 31
+    x &= const.WORD_MASK
+    return ((x << s) | (x >> (32 - s))) & const.WORD_MASK
+
+#circular right rotation of a 32 bit word
+def rotr32(x, s):
+    s &= 31
+    x &= const.WORD_MASK
+    return ((x >> s) | (x << (32 - s))) & const.WORD_MASK
 
 def main():
     # --- Test suit --- #
@@ -151,8 +158,8 @@ def decrypt_block(block16: bytes, S: list[int], rounds: int = const.ROUNDS_DEFAU
         A, B, C, D = D, A, B, C
         t = rotl32(u32(B * (2 * B + 1)), 5)
         u = rotl32(u32(D * (2 * D + 1)), 5)
-        C = u32(rotl32(u32(C - S[2 * i + 1]), t) ^ u)
-        A = u32(rotl32(u32(A - S[2 * i]), u) ^ t)
+        C = u32(rotr32(u32(C - S[2 * i + 1]), t) ^ u)
+        A = u32(rotr32(u32(A - S[2 * i]), u) ^ t)
 
     # undo pre whitening
     B = u32(B - S[0])
@@ -160,6 +167,7 @@ def decrypt_block(block16: bytes, S: list[int], rounds: int = const.ROUNDS_DEFAU
 
     #return packed block
     return pack_block_little_endian(A, B, C, D)
+
 
 if __name__ == "__main__":
     main()
