@@ -4,12 +4,12 @@ Test module for Schnorr signature implementation.
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import pytest
-from schnorr.schnorr_signature import SchnorrSigner
-from utils.signature_object import SignatureObject
-from utils.key_pair import KeyPair
+from src.algorithms.schnorr.schnorr_signature import SchnorrSigner
+from src.utils.signature_object import SignatureObject
+from src.utils.key_pair import KeyPair
 
 
 class TestSchnorrSigner:

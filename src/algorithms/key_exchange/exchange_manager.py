@@ -1,11 +1,11 @@
 import os
-import utils.email_message as email_message
-import utils.secure_bundle as secure_bundle
-import utils.signature_object as signatures
+from src.utils.email_message import EmailMessage
+from src.utils.secure_bundle import SecureBundle
+from src.utils.signature_object import SignatureObject
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
-import schnorr.schnorr_signature as schnorr_signature
+from src.algorithms.schnorr.schnorr_signature import SchnorrSigner
 
 class ExchangeManager:
     """
@@ -35,7 +35,7 @@ class ExchangeManager:
         return os.urandom(12)
     
         #! DELETE THE RETURNED NONE when the securedBundle is implemented correctly
-    def secure_send(self, mail : email_message.EmailMessage) -> secure_bundle.SecureBundle | None:
+    def secure_send(self, mail : EmailMessage) -> SecureBundle | None:
         """
         Send data using Schnorr Signature + RC6 (GCM) Cipher + El-Gamal (EC)
         
@@ -59,7 +59,7 @@ class ExchangeManager:
         mail_as_bytes = mail.to_bytes()
         
         # Step 2: Run Schnorr's Signature algorithm in order to create the signature
-        schnorr_algorithm = schnorr_signature.SchnorrSigner()     
+        schnorr_algorithm = SchnorrSigner()     
         signature = schnorr_algorithm.generate_signature(mail_as_bytes, self.sender_private_key)
         
         # Step 3.1 Generate a random 256-bit long session key
@@ -74,7 +74,7 @@ class ExchangeManager:
         return None
     
     
-    def secure_receive(self, bundle : secure_bundle.SecureBundle) -> str: #! Maybe return the contents instead aof a boolean
+    def secure_receive(self, bundle : SecureBundle) -> str: #! Maybe return the contents instead aof a boolean
         """
         Unpack the Secure Bundle and get the decipher the contents
         
@@ -101,14 +101,14 @@ class ExchangeManager:
         
         ###################**PLACEHOLDERS****###############
         email_as_bytes = bytes() # Insert email in bytes form here
-        signature = signatures.SignatureObject(bytes(), bytes()) # Given from Niko's algorithm
+        signature = SignatureObject(bytes(), bytes()) # Given from Niko's algorithm
         
         
         ###################################################
         
         
         # Step 3: Using Schnorr's algorithm, verify the contents
-        schnorr_algorithm = schnorr_signature.SchnorrSigner()
+        schnorr_algorithm = SchnorrSigner()
         is_signature_verified = schnorr_algorithm.verify_signature(email_as_bytes, signature, bundle.__sender_pub_key)
         
         if (not is_signature_verified): # Schnore fails

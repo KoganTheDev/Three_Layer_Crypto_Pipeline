@@ -1,5 +1,5 @@
-from utils.key_pair import KeyPair
-import exchange_manager as exchange_manager
+from src.utils.key_pair import KeyPair
+from src.algorithms.key_exchange.exchange_manager import ExchangeManager
 
 
 def main():
@@ -9,7 +9,7 @@ def main():
     recipient_keys = KeyPair.generate()
 
     # Pass them into the manager
-    manager = exchange_manager.ExchangeManager(      
+    manager = ExchangeManager(      
         sender_private_key = sender_keys[0], # Get SENDER_PRIVATE key
         recipient_public_key=recipient_keys[1] # GET RECIPIENT PUBLIC key
     )
