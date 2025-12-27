@@ -3,8 +3,6 @@
 
 import os
 
-# ---- import your stuff ----
-# If these files are in the same folder, this works:
 from rc6 import expand_key, encrypt_block
 from gcm import gcm_encrypt, gcm_decrypt
 
