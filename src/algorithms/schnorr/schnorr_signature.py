@@ -1,9 +1,9 @@
 import os
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from utils.signature_object import SignatureObject
-from utils.utils import ec_scalar_mult, ec_point_add
-import common.constants as const
+from src.utils.signature_object import SignatureObject
+from src.utils.utils import ec_scalar_mult, ec_point_add
+from src.core.constants import _p, _n, _Gx, _Gy
 
 """
 Schnorr Signature Algorithm Implementation
@@ -44,12 +44,10 @@ class SchnorrSigner:
             5. Solve s = k + e*d (mod n)
         """
         d = private_key.private_numbers().private_value
-        k = int.from_bytes(os.urandom(32), 'big') % (const._n - 1) + 1
-        G = (const._Gx, const._Gy)
-        R = ec_scalar_mult(k, G, const._p)
+        k = int.from_bytes(os.urandom(32), 'big') % (_n - 1) + 1
+        G = (_Gx, _Gy)
+        R = ec_scalar_mult(k, G, _p)
         
-        R = ec_scalar_mult(k, G, const._p)
-    
         if R is None:
             # Extremely rare, but k*G could hit infinity. 
             # In a real app, you'd loop back and pick a new 'k'.
@@ -58,8 +56,8 @@ class SchnorrSigner:
         r = R[0].to_bytes(32, 'big')
         hash_obj = hashes.Hash(hashes.SHA256())
         hash_obj.update(r + data)
-        e = int.from_bytes(hash_obj.finalize(), 'big') % const._n
-        s = (k + e * d) % const._n
+        e = int.from_bytes(hash_obj.finalize(), 'big') % _n
+        s = (k + e * d) % _n
         
         return SignatureObject(r, s.to_bytes(32, 'big'))
 
@@ -86,15 +84,15 @@ class SchnorrSigner:
             
             hash_obj = hashes.Hash(hashes.SHA256())
             hash_obj.update(r + data)
-            e = int.from_bytes(hash_obj.finalize(), 'big') % const._n
+            e = int.from_bytes(hash_obj.finalize(), 'big') % _n
             
-            G = (const._Gx, const._Gy)
+            G = (_Gx, _Gy)
             Q = (public_key.public_numbers().x, public_key.public_numbers().y)
             
-            sG = ec_scalar_mult(s, G, const._p)
-            eQ = ec_scalar_mult(e, Q, const._p)
-            eQ_neg = (eQ[0], (-eQ[1]) % const._p) if eQ else None
-            R_prime = ec_point_add(sG, eQ_neg, const._p)
+            sG = ec_scalar_mult(s, G, _p)
+            eQ = ec_scalar_mult(e, Q, _p)
+            eQ_neg = (eQ[0], (-eQ[1]) % _p) if eQ else None
+            R_prime = ec_point_add(sG, eQ_neg, _p)
             
             return R_prime[0].to_bytes(32, 'big') == r if R_prime else False
         except:
