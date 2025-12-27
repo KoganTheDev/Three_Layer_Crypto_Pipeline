@@ -1,5 +1,5 @@
 # RC6 works on a single 16 byte block at a time
-import common.constants as const
+import constants as const
 import os
 import pytest
 
@@ -68,6 +68,8 @@ def pack_block_little_endian(A: int, B: int, C: int, D: int) -> bytes:
 # convert bytes to a list of little endian 32 bit words
 # NOTE: ENDING MUST BE "LITTLE"
 def bytes_to_words_little_endian(data: bytes) -> list[int]:
+    if len(data) == 0:
+        return [0]  # avoid c=0 later
     #if key length is not multiple of 4, pad with zeroes to next multiple of 4
     if len(data) % 4 != 0:
         padding_length = 4 - (len(data) % 4) # determine how many bytes to pad
