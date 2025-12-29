@@ -20,7 +20,7 @@ This project implements a complete three-layer encryption pipeline for secure me
 
 ### Three-Layer Encryption Pipeline
 
-![project_flow_chart](docs\project_flow_chart.png)
+![project_flow_chart](docs/project_flow_chart.png)
 
 ---
 
