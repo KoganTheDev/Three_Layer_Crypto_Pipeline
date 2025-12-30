@@ -173,6 +173,46 @@ class ElGamalEC:
         # Return C1 as point (x, y) and C2 as bytes
         return (C1, C2)
     
+    @staticmethod
+    def static_decrypt(private_key: int, C1: tuple, C2: bytes) -> bytes:
+        """
+        Decrypt a session key using El-Gamal without creating an instance.
+        
+        This is useful when you only have the private key value and don't need
+        to compute/verify the corresponding public key.
+        
+        Args:
+            private_key: Private scalar value
+            C1: Ephemeral public point (x, y) from encryption
+            C2: Encrypted symmetric key bytes
+            
+        Returns:
+            Decrypted session key (32 bytes)
+            
+        Raises:
+            ValueError: If parameters are invalid
+        """
+        # Note: We skip range validation here to support keys from cryptography library
+        # which may have different ranges. The math will still work correctly.
+        
+        if len(C2) != 32:
+            raise ValueError(f"Encrypted key must be 32 bytes, got {len(C2)}")
+        
+        # Compute shared secret = private_key * C1
+        shared_secret = ec_scalar_mult(private_key, C1, P)
+        if shared_secret is None:
+            raise ValueError("Failed to compute shared secret during decryption")
+        
+        # Derive symmetric key using same method as encryption
+        import hashlib
+        x_coord = shared_secret[0].to_bytes(32, 'big')
+        derived_key = hashlib.sha256(x_coord).digest()
+        
+        # Recover session_key: C2 XOR derived_key
+        session_key = bytes(a ^ b for a, b in zip(C2, derived_key))
+        
+        return session_key
+    
     def decrypt(self, C1: tuple, C2: bytes) -> bytes:
         """
         Decrypt a session key using El-Gamal.

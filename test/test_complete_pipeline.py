@@ -180,31 +180,13 @@ class TestExchangeManager:
     
     def test_secure_send_receive_roundtrip(self):
         """Test complete message encryption and decryption."""
-        # Generate key pairs for sender and recipient
-        # IMPORTANT: For El-Gamal to work correctly, we need compatible private keys
-        # The cryptography library uses SECP256K1 with range ~2^256
-        # Our El-Gamal implementation uses SECP256K1 with order N ~2^255
-        # So we need to normalize the keys
-        
+        # Generate key pairs for sender and recipient using cryptography
         sender_priv, sender_pub = KeyPair.generate()
         recipient_priv, recipient_pub = KeyPair.generate()
         
-        # Normalize private keys to El-Gamal range for consistency
-        sender_elgamal_priv = sender_priv.private_numbers().private_value
-        recipient_elgamal_priv = recipient_priv.private_numbers().private_value
-        
-        # When using these for El-Gamal, ensure they're properly normalized
-        from src.algorithms.el_gamal.el_gamal_ec import N
-        sender_elgamal_priv = (sender_elgamal_priv % (N - 1)) + 1
-        recipient_elgamal_priv = (recipient_elgamal_priv % (N - 1)) + 1
-        
-        # Create El-Gamal instances with normalized keys
-        sender_elgamal = ElGamalEC(sender_elgamal_priv)
-        recipient_elgamal = ElGamalEC(recipient_elgamal_priv)
-        
-        # Get their public keys
-        recipient_coords = recipient_elgamal.public_key
-        sender_coords = sender_elgamal.public_key
+        # Get public key coordinates for both parties
+        sender_pub_coords = KeyPair.get_coordinates(sender_pub)
+        recipient_pub_coords = KeyPair.get_coordinates(recipient_pub)
         
         # Create message
         message_text = "This is a secret message for testing the complete pipeline!"
@@ -212,7 +194,7 @@ class TestExchangeManager:
         
         # STEP 1: SENDER ENCRYPTS MESSAGE
         print("\n[TEST] SENDER ENCRYPTING MESSAGE")
-        sender_manager = ExchangeManager(sender_priv, recipient_coords)
+        sender_manager = ExchangeManager(sender_priv, recipient_pub_coords)
         encrypted_bundle = sender_manager.secure_send(email_message)
         
         # Verify bundle contains all required components
@@ -229,20 +211,12 @@ class TestExchangeManager:
         print(f"  - Auth tag: {len(encrypted_bundle.auth_tag)} bytes")
         
         # STEP 2: RECIPIENT DECRYPTS MESSAGE
-        # Create a specialized decryption manager with El-Gamal private key
         print("\n[TEST] RECIPIENT DECRYPTING MESSAGE")
         
-        # Create a custom manager for decryption with the El-Gamal compatible key
-        # We need to use secure_receive but with the El-Gamal compatible private key
-        # The issue is that secure_receive expects an EC private key
-        # So we need to use recipient_priv but ensure El-Gamal normalizes correctly
+        # Create manager for decryption - recipient uses their private key to decrypt
+        recipient_manager = ExchangeManager(recipient_priv, sender_pub_coords)
         
-        recipient_manager = ExchangeManager(recipient_priv, sender_coords)
-        
-        # Create a modified private key object that will work with El-Gamal
-        # For this test, we'll manually unwrap and decrypt
-        # Actually, let's use the fact that El-Gamal will normalize any key
-        
+        # Decrypt using the recipient's private key
         decrypted_text = recipient_manager.secure_receive(encrypted_bundle, recipient_priv)
         
         # Verify decryption

@@ -123,6 +123,20 @@ class ExchangeManager:
             pub_numbers = self.recipient_public_key.public_numbers()
             return (pub_numbers.x, pub_numbers.y)
     
+    def _get_recipient_coords_from_key(self, public_key) -> tuple:
+        """
+        Extract (x, y) coordinates from an EC public key object.
+        
+        Returns:
+            Tuple of (x, y) coordinates
+        """
+        if isinstance(public_key, tuple):
+            return public_key
+        else:
+            # It's an EC public key object
+            pub_numbers = public_key.public_numbers()
+            return (pub_numbers.x, pub_numbers.y)
+    
     def secure_send(self, mail: EmailMessage) -> SecureBundle:
         """
         Encrypt and sign an email message using the three-layer pipeline.
@@ -237,7 +251,7 @@ class ExchangeManager:
             sender_id="sender"
         )
     
-    def secure_receive(self, bundle: SecureBundle, receiver_private_key: ec.EllipticCurvePrivateKey) -> str:
+    def secure_receive(self, bundle: SecureBundle, receiver_private_key: ec.EllipticCurvePrivateKey, receiver_public_key: ec.EllipticCurvePublicKey = None) -> str:
         """
         Decrypt and verify an email message using the three-layer pipeline.
         
@@ -249,6 +263,7 @@ class ExchangeManager:
         Args:
             bundle: SecureBundle containing encrypted message components
             receiver_private_key: EC private key of receiver (for unwrapping key)
+            receiver_public_key: EC public key of receiver (optional, will be derived if not provided)
             
         Returns:
             Decrypted message content as string
@@ -277,28 +292,19 @@ class ExchangeManager:
         print(f"\n1. EL-GAMAL KEY UNWRAPPING")
         print(f"\tInput encrypted key: {len(bundle.encrypted_key)} bytes | {bundle.encrypted_key.hex()[:32]}...")
         
-        # Create El-Gamal instance with receiver's private key
-        # Important: The private key must be in El-Gamal's valid range [1, N)
-        # Since cryptography uses a different range, we normalize it
+        # Get receiver's private key value
         priv_value = receiver_private_key.private_numbers().private_value
-        
-        # Normalize to El-Gamal's curve order N
-        from src.algorithms.el_gamal.el_gamal_ec import N as ELGAMAL_N
-        normalized_priv = (priv_value % (ELGAMAL_N - 1)) + 1
-        
-        # Create El-Gamal with normalized private key
-        el_gamal = ElGamalEC(normalized_priv)
         
         # Deserialize C1 and C2 from encrypted_key
         encrypted_key_bytes = bundle.encrypted_key
         C1_bytes = encrypted_key_bytes[:33]  # Compressed point is 33 bytes
         C2 = encrypted_key_bytes[33:]
         
-        # Decompress C1
-        C1 = el_gamal.bytes_to_point(C1_bytes)
+        # Decompress C1 using static method
+        C1 = ElGamalEC.bytes_to_point(C1_bytes)
         
-        # Decrypt session key using El-Gamal
-        self.session_key = el_gamal.decrypt(C1, C2)
+        # Decrypt session key using static method (without creating instance with computed public key)
+        self.session_key = ElGamalEC.static_decrypt(priv_value, C1, C2)
         
         print(f"\tC1 (ephemeral pubkey): {len(C1_bytes)} bytes | {C1_bytes.hex()[:32]}...")
         print(f"\tC2 (encrypted key): {len(C2)} bytes | {C2.hex()[:32]}...")
