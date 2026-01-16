@@ -46,6 +46,7 @@ if project_root not in sys.path:
 from src.utils.key_pair import KeyPair
 from src.algorithms.key_exchange.exchange_manager import ExchangeManager
 from src.utils.input_validation import get_network_config, validate_ip_address, validate_port
+from src.utils.user_database import UserDatabase
 
 
 class SecureServer:
@@ -72,7 +73,7 @@ class SecureServer:
     """
     
     def __init__(self, host: str = "0.0.0.0", port: int = 5000, 
-                 max_clients: int = 10) -> None:
+                 max_clients: int = 10, db_path: str = "data/users.json") -> None:
         """
         Initialize secure server.
         
@@ -80,6 +81,7 @@ class SecureServer:
             host: IP address to bind to (default: all interfaces)
             port: Port number to listen on
             max_clients: Maximum number of concurrent clients
+            db_path: Path to user database file
             
         Raises:
             Exception: If key generation fails
@@ -87,6 +89,11 @@ class SecureServer:
         self.host = host
         self.port = port
         self.max_clients = max_clients
+        
+        # Initialize user database
+        print("[Server] Initializing user database...")
+        self.user_db = UserDatabase(db_path)
+        print(f"User database initialized. Registered users: {self.user_db.get_user_count()}")
         
         # Generate server's key pair
         print("[Server] Generating key pair...")
@@ -265,31 +272,39 @@ class ClientHandler:
         self.server_private_key = server_private_key
         self.server_public_key = server_public_key
         self.server = server
+        self.authenticated_username = None  # Track authenticated user
     
     def handle(self) -> None:
         """
         Handle client connection lifecycle.
         
         Protocol:
-        1. Exchange public keys
-        2. Receive encrypted messages
-        3. Decrypt and process
-        4. Send responses
-        5. Handle disconnect
+        1. Authenticate user (login or register)
+        2. Exchange public keys
+        3. Receive encrypted messages
+        4. Decrypt and process
+        5. Send responses
+        6. Handle disconnect
         
         Flow:
-        1. Send server's public key
-        2. Receive client's public key
-        3. Enter message handling loop
-        4. For each message: decrypt → verify → respond
-        5. Handle DISCONNECT or errors
+        1. Handle authentication (login/register)
+        2. Send server's public key
+        3. Receive client's public key
+        4. Enter message handling loop
+        5. For each message: decrypt → verify → respond
+        6. Handle DISCONNECT or errors
         """
         try:
-            # Exchange keys
+            # Step 1: Authenticate user
+            if not self._handle_authentication():
+                print(f"[Client #{self.client_id}] Authentication failed, closing connection")
+                return
+            
+            # Step 2: Exchange keys
             if not self._exchange_keys():
                 return
             
-            # Message handling loop
+            # Step 3: Message handling loop
             while True:
                 if not self._handle_message():
                     break
@@ -298,6 +313,99 @@ class ClientHandler:
             print(f"[Client #{self.client_id}] Error: {e}")
         finally:
             self._cleanup()
+    
+    def _handle_authentication(self) -> bool:
+        """
+        Handle user authentication (login or register).
+        
+        Protocol:
+        1. Receive AUTH_LOGIN or AUTH_REGISTER message
+        2. Process authentication
+        3. Send AUTH_SUCCESS or AUTH_FAILURE
+        
+        Returns:
+            True if authentication successful, False otherwise
+        """
+        try:
+            print(f"[Client #{self.client_id}] Waiting for authentication...")
+            
+            # Receive authentication message
+            auth_msg_raw = self.client_socket.recv(4096)
+            if not auth_msg_raw:
+                print(f"[Client #{self.client_id}] No authentication data received")
+                return False
+            
+            auth_msg = json.loads(auth_msg_raw.decode('utf-8'))
+            msg_type = auth_msg.get('type')
+            username = auth_msg.get('username', '')
+            password = auth_msg.get('password', '')
+            
+            response = {}
+            
+            if msg_type == 'AUTH_LOGIN':
+                # Handle login
+                print(f"[Client #{self.client_id}] Login attempt for user: {username}")
+                success, user = self.server.user_db.authenticate_user(username, password)
+                
+                if success:
+                    self.authenticated_username = username
+                    response = {
+                        'type': 'AUTH_SUCCESS',
+                        'success': True,
+                        'message': f'Welcome back, {username}!',
+                        'username': username
+                    }
+                    print(f"[Client #{self.client_id}] Login successful for user: {username}")
+                else:
+                    response = {
+                        'type': 'AUTH_FAILURE',
+                        'success': False,
+                        'message': 'Invalid username or password',
+                        'username': ''
+                    }
+                    print(f"[Client #{self.client_id}] Login failed for user: {username}")
+            
+            elif msg_type == 'AUTH_REGISTER':
+                # Handle registration
+                print(f"[Client #{self.client_id}] Registration attempt for user: {username}")
+                success, message = self.server.user_db.register_user(username, password)
+                
+                if success:
+                    self.authenticated_username = username
+                    response = {
+                        'type': 'AUTH_SUCCESS',
+                        'success': True,
+                        'message': f'Registration successful! Welcome, {username}!',
+                        'username': username
+                    }
+                    print(f"[Client #{self.client_id}] Registration successful for user: {username}")
+                else:
+                    response = {
+                        'type': 'AUTH_FAILURE',
+                        'success': False,
+                        'message': message,
+                        'username': ''
+                    }
+                    print(f"[Client #{self.client_id}] Registration failed: {message}")
+            
+            else:
+                response = {
+                    'type': 'AUTH_FAILURE',
+                    'success': False,
+                    'message': 'Invalid authentication message type',
+                    'username': ''
+                }
+                print(f"[Client #{self.client_id}] Invalid auth message type: {msg_type}")
+            
+            # Send response
+            response_json = json.dumps(response).encode('utf-8')
+            self.client_socket.send(response_json)
+            
+            return response.get('success', False)
+        
+        except Exception as e:
+            print(f"[Client #{self.client_id}] Authentication error: {e}")
+            return False
     
     def _exchange_keys(self) -> bool:
         """

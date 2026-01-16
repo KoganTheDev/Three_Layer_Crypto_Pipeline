@@ -45,7 +45,9 @@ from src.utils.key_pair import KeyPair
 from src.utils.email_message import EmailMessage
 from src.algorithms.key_exchange.exchange_manager import ExchangeManager
 from src.utils.input_validation import get_network_config, validate_ip_address, validate_port
+from src.utils.user_auth import UserAuthenticator
 from cryptography.hazmat.primitives import serialization
+import getpass  # For secure password input
 
 class SecureClient:
     """
@@ -112,13 +114,15 @@ class SecureClient:
         # Store server's public key (needed for encryption)
         self.server_public_key = server_public_key_coords
         self.socket = None
+        self.authenticated_username = None  # Track authenticated user
+        self.authenticator = UserAuthenticator()  # For client-side validation
     
     def connect(self) -> bool:
         """
-        Establish TCP connection to server.
+        Establish TCP connection to server and authenticate.
         
         Returns:
-            True if connection successful, False otherwise
+            True if connection and authentication successful, False otherwise
             
         Raises:
             socket.error: If connection fails
@@ -128,9 +132,177 @@ class SecureClient:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((self.host, self.port))
             print("Connected to server")
+            
+            # Authenticate user
+            if not self._handle_authentication():
+                print("[Client] Authentication failed")
+                self.close()
+                return False
+            
             return True
         except socket.error as e:
             print(f"Connection failed: {e}")
+            return False
+    
+    def _handle_authentication(self) -> bool:
+        """
+        Handle user authentication (login or register).
+        
+        Prompts user for credentials and authenticates with server.
+        
+        Returns:
+            True if authentication successful, False otherwise
+        """
+        max_attempts = 3
+        attempt = 0
+        
+        while attempt < max_attempts:
+            try:
+                print("\n" + "="*60)
+                print("USER AUTHENTICATION")
+                print("="*60)
+                print("1. Login (existing user)")
+                print("2. Register (new user)")
+                print("\nPassword Requirements:")
+                print("  - At least 8 characters")
+                print("  - At least one uppercase letter")
+                print("  - At least one lowercase letter")
+                print("  - At least one digit")
+                
+                while True:
+                    choice = input("\nSelect option (1 or 2): ").strip()
+                    if choice in ['1', '2']:
+                        break
+                    print("Invalid choice. Please enter 1 or 2.")
+                
+                # Get credentials
+                username = input("Username: ").strip()
+                
+                # Use getpass for secure password input (no echo)
+                password = getpass.getpass("Password: ")
+                
+                # Validate credentials client-side first
+                is_valid, error = self.authenticator.validate_username(username)
+                if not is_valid:
+                    print(f"\n❌ Username validation error: {error}")
+                    attempt += 1
+                    if attempt < max_attempts:
+                        print(f"Attempts remaining: {max_attempts - attempt}")
+                        continue
+                    else:
+                        print("Maximum authentication attempts reached.")
+                        return False
+                
+                is_valid, error = self.authenticator.validate_password_strength(password)
+                if not is_valid:
+                    print(f"\n❌ Password validation error: {error}")
+                    print("\nPassword Requirements:")
+                    print("  ✓ At least 8 characters")
+                    print("  ✓ At least one uppercase letter (A-Z)")
+                    print("  ✓ At least one lowercase letter (a-z)")
+                    print("  ✓ At least one digit (0-9)")
+                    attempt += 1
+                    if attempt < max_attempts:
+                        print(f"\nAttempts remaining: {max_attempts - attempt}")
+                        continue
+                    else:
+                        print("\nMaximum authentication attempts reached.")
+                        return False
+                
+                # Send authentication request to server
+                if choice == '1':
+                    return self._send_login(username, password)
+                else:
+                    return self._send_register(username, password)
+            
+            except KeyboardInterrupt:
+                print("\n\n[Client] Authentication cancelled by user")
+                return False
+            except Exception as e:
+                print(f"\n❌ Authentication error: {e}")
+                attempt += 1
+                if attempt < max_attempts:
+                    print(f"Attempts remaining: {max_attempts - attempt}")
+                else:
+                    print("Maximum authentication attempts reached.")
+                    return False
+        
+        return False
+    
+    def _send_login(self, username: str, password: str) -> bool:
+        """
+        Send login request to server.
+        
+        Args:
+            username: Username
+            password: Password
+            
+        Returns:
+            True if login successful, False otherwise
+        """
+        try:
+            print(f"\n[Client] Sending login request for user: {username}")
+            
+            # Send login message
+            login_msg = {
+                'type': 'AUTH_LOGIN',
+                'username': username,
+                'password': password
+            }
+            self.socket.send(json.dumps(login_msg).encode('utf-8'))
+            
+            # Receive response
+            response_raw = self.socket.recv(4096)
+            response = json.loads(response_raw.decode('utf-8'))
+            
+            if response.get('success'):
+                self.authenticated_username = username
+                print(f"✅ {response.get('message', 'Login successful')}")
+                return True
+            else:
+                print(f"❌ Login failed: {response.get('message', 'Invalid username or password')}")
+                return False
+        
+        except Exception as e:
+            print(f"❌ [Client] Login error: {e}")
+            return False
+    
+    def _send_register(self, username: str, password: str) -> bool:
+        """
+        Send registration request to server.
+        
+        Args:
+            username: Username
+            password: Password
+            
+        Returns:
+            True if registration successful, False otherwise
+        """
+        try:
+            print(f"\n[Client] Sending registration request for user: {username}")
+            
+            # Send registration message
+            register_msg = {
+                'type': 'AUTH_REGISTER',
+                'username': username,
+                'password': password
+            }
+            self.socket.send(json.dumps(register_msg).encode('utf-8'))
+            
+            # Receive response
+            response_raw = self.socket.recv(4096)
+            response = json.loads(response_raw.decode('utf-8'))
+            
+            if response.get('success'):
+                self.authenticated_username = username
+                print(f"✅ {response.get('message', 'Registration successful')}")
+                return True
+            else:
+                print(f"❌ Registration failed: {response.get('message', 'Username already exists or invalid credentials')}")
+                return False
+        
+        except Exception as e:
+            print(f"❌ [Client] Registration error: {e}")
             return False
     
     def exchange_keys(self) -> bool:

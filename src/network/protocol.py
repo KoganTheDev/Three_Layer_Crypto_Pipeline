@@ -22,6 +22,10 @@ class MessageType(IntEnum):
     ACK = 4                   # Acknowledgment
     ERROR = 5                 # Error message
     DISCONNECT = 6            # Clean disconnect
+    AUTH_REGISTER = 7         # User registration
+    AUTH_LOGIN = 8            # User login
+    AUTH_SUCCESS = 9          # Authentication successful
+    AUTH_FAILURE = 10         # Authentication failed
 
 
 class Protocol:
@@ -198,3 +202,83 @@ class Protocol:
         """
         data = json.loads(payload.decode('utf-8'))
         return data.get('error', 'Unknown error')
+    
+    @staticmethod
+    def serialize_auth_register(username: str, password: str) -> bytes:
+        """
+        Serialize a registration request.
+        
+        Args:
+            username: Username to register
+            password: Plain text password (will be hashed on server)
+            
+        Returns:
+            JSON encoded bytes
+        """
+        data = {'username': username, 'password': password}
+        return json.dumps(data).encode('utf-8')
+    
+    @staticmethod
+    def deserialize_auth_register(payload: bytes) -> dict:
+        """
+        Deserialize a registration request.
+        
+        Returns:
+            Dictionary with username and password
+        """
+        return json.loads(payload.decode('utf-8'))
+    
+    @staticmethod
+    def serialize_auth_login(username: str, password: str) -> bytes:
+        """
+        Serialize a login request.
+        
+        Args:
+            username: Username
+            password: Plain text password
+            
+        Returns:
+            JSON encoded bytes
+        """
+        data = {'username': username, 'password': password}
+        return json.dumps(data).encode('utf-8')
+    
+    @staticmethod
+    def deserialize_auth_login(payload: bytes) -> dict:
+        """
+        Deserialize a login request.
+        
+        Returns:
+            Dictionary with username and password
+        """
+        return json.loads(payload.decode('utf-8'))
+    
+    @staticmethod
+    def serialize_auth_response(success: bool, message: str, username: str = "") -> bytes:
+        """
+        Serialize an authentication response.
+        
+        Args:
+            success: Whether authentication succeeded
+            message: Status message
+            username: Username (if successful)
+            
+        Returns:
+            JSON encoded bytes
+        """
+        data = {
+            'success': success,
+            'message': message,
+            'username': username
+        }
+        return json.dumps(data).encode('utf-8')
+    
+    @staticmethod
+    def deserialize_auth_response(payload: bytes) -> dict:
+        """
+        Deserialize an authentication response.
+        
+        Returns:
+            Dictionary with success, message, and username
+        """
+        return json.loads(payload.decode('utf-8'))

@@ -1,6 +1,6 @@
 
 
-# 🚀 TDD with Pytest: A Modern Workflow
+#  TDD with Pytest: A Modern Workflow
 
 This guide outlines the best practices for implementing the **Test-Driven Development (TDD)** workflow using the simple, yet powerful, **`pytest`** framework in Python.
 
@@ -8,11 +8,11 @@ TDD involves three main steps—**Red, Green, Refactor**—which ensure your cod
 
 -----
 
-## 1\. 🟥 RED: Write a Failing Test
+## 1\.  RED: Write a Failing Test
 
 The first step in TDD is to write a test for a feature that doesn't exist yet. This forces you to clearly define the required behavior **before** you write any implementation code.
 
-### 📝 Action Steps
+###  Action Steps
 
 1.  **Define the Test File:** Create a test file (e.g., `test_feature.py`) in your dedicated `tests/` directory.
 2.  **Write the Assertion:** Write a simple `def test_...():` function that calls your future function with specific inputs and asserts the expected output using the standard Python `assert` keyword.
@@ -38,7 +38,7 @@ When you run `pytest`, it will fail with an error like `NameError: name 'add' is
 
 -----
 
-## 2\. 🟢 GREEN: Write Minimum Viable Code
+## 2\. GREEN: Write Minimum Viable Code
 
 The goal here is simple: write the **minimum amount of code** required to make the failing test pass. Do not worry about edge cases, efficiency, or elegant structure yet.
 
@@ -67,7 +67,7 @@ The test should now **PASS (Green)**. If it passes, you know your basic requirem
 
 -----
 
-## 3\. ♻️ REFACTOR: Improve the Code and Tests
+## 3\. REFACTOR: Improve the Code and Tests
 
 With your test passing (Green), you now have the confidence to safely clean up and improve your code without fear of breaking existing functionality. The tests act as a safety net.
 
@@ -99,7 +99,7 @@ This is the **Green** stage, and you're ready to start the cycle over for the ne
 
 -----
 
-## ⚙️ Running Your Tests
+##  Running Your Tests
 
 ### Prerequisites
 

@@ -11,6 +11,7 @@ This project implements a complete three-layer encryption pipeline for secure me
 - **Schnorr Digital Signature** - Non-malleable message authentication
 - **RC6-GCM Encryption** - Authenticated symmetric encryption  
 - **El-Gamal Key Encapsulation** - Asymmetric key wrapping
+- **User Authentication** - Secure login/registration with bcrypt password hashing
 - **Secure Client/Server Application** - Complete network implementation
 - **Comprehensive Test Suite** - Full algorithm verification
 
@@ -184,7 +185,8 @@ python test/test_complete_pipeline.py
 
 ```
 cryptography >= 41.0.0  # For SECP256K1 key generation and EC utilities
-pytest >= 7.0.0        # For unit testing
+bcrypt >= 4.0.1         # For secure password hashing
+pytest >= 7.0.0         # For unit testing
 ```
 
 ---
@@ -215,9 +217,11 @@ python src/secure_server.py
 ```
 
 The server will:
+- Initialize user authentication database
 - Generate an EC key pair (SECP256K1)
-- Listen on `0.0.0.0:5000`
+- Listen on `127.0.0.1:5000`
 - Handle multiple concurrent clients
+- Authenticate users (login/registration)
 - Decrypt and verify incoming messages
 - Display authenticated messages
 
@@ -230,9 +234,13 @@ python src/secure_client.py
 The client will:
 - Generate an EC key pair (SECP256K1)
 - Connect to server at `127.0.0.1:5000`
+- Authenticate (login or register) with username/password
 - Exchange public keys
 - Encrypt messages using the 3-layer pipeline
 - Send and receive encrypted messages interactively
+
+**New in v2.0**: User authentication with secure password hashing!  
+See `docs/AUTHENTICATION.md` for detailed authentication documentation.
 
 ## Security Considerations
 
@@ -252,6 +260,12 @@ This implementation protects against:
 3. **Forgery Attacks**
    - Non-malleable Schnorr signatures prevent forgery
    - Random ephemeral keys in El-Gamal prevent key reuse attacks
+
+4. **Unauthorized Access** ⭐ **NEW**
+   - User authentication with bcrypt password hashing
+   - Passwords never stored in plaintext
+   - Unique salt per password
+   - Configurable work factor (12 rounds = ~0.3s per hash)
 
 ### Limitations
 

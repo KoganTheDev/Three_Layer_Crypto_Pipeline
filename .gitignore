@@ -1,27 +1,59 @@
-*.pdf
-*.docx
-*.pyc
-*.xlsx
-*.coverage
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-### VisualStudioCode ###
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
 
-# Local History for Visual Studio Code
-.history/
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Built Visual Studio Code Extensions
-*.vsix
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
-### VisualStudioCode Patch ###
-# Ignore all local history of files
-.history
-.ionide
+# User Database (IMPORTANT: Keep user credentials private!)
+data/
+*.json
+*.json.bak
+users.json
+users.json.bak
 
-# Keep secrets file locally
-*/**/secrets.json
+# Private Keys
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
